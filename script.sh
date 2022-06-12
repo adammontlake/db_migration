@@ -6,6 +6,7 @@
 # ->  wget https://github.com/mydumper/mydumper/releases/download/v0.12.3-3/mydumper_0.12.3-3-zstd.$(lsb_release -cs)_amd64.deb
 # ->  sudo dpkg -i mydumper...
 
+
 bkp_pth="/mnt/c/workspace/forter/db_migration"
 log_pth="/mnt/c/workspace/forter/db_migration"
 blob="https://stpocdevwus201.blob.core.windows.net/blob-db-export-adam"
