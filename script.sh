@@ -5,6 +5,8 @@
 # ->  apt-get install libglib2.0-dev zlib1g-dev libpcre3-dev libssl-dev libzstd-dev
 # ->  wget https://github.com/mydumper/mydumper/releases/download/v0.12.3-3/mydumper_0.12.3-3-zstd.$(lsb_release -cs)_amd64.deb
 # ->  sudo dpkg -i mydumper...
+# Run script in the background with: nohup bash script &
+# Set enviroment variables: MYSQL_PWD & BLOB_SAS_TOKEN
 
 bkp_pth="/mnt/c/workspace/forter/db_migration"
 log_pth="/mnt/c/workspace/forter/db_migration"
@@ -51,7 +53,7 @@ backup(){
 	#Unset last element to remove trailing new line
 	unset 'table_array[-1]'
 
-	#remove system tables that start with "_"
+	#remove system tables that start with "_" and in system_tables array
 	for i in "${!table_array[@]}"; do
 		#table_array[$i]=${table_array[i]%,*} 
 		if [[ ${table_array[i]} == _* || $system_tables =~ ${table_array[i]} ]]; then
