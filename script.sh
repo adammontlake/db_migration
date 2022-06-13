@@ -93,7 +93,7 @@ restore(){
 		azcopy copy "${blob}/${current_table}_backup${BLOB_SAS_TOKEN}" ${bkp_pth} --recursive
 		
 		#Load table to mysql
-		myloader --host=$host --user=$user --password=$MYSQL_PWD --directory=${bkp_pth}/${current_table}_backup --queries-per-transaction=500 --threads=16 --compress-protocol --ssl --verbose=3 -e 2>${log_pth}/${current_table}-myloader-logs-restore.log
+		myloader --host=$host --user=$user --password=$MYSQL_PWD --directory=${bkp_pth}/${current_table}_backup --queries-per-transaction=500 --threads=16 --compress-protocol --ssl --verbose=3 --innodb-optimize-keys -e 2>${log_pth}/${current_table}-myloader-logs-restore.log
 
 		#Remove local copy
 		emit "Transfer complete, deleting local copy of ${current_table}"
