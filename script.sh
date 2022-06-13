@@ -75,7 +75,28 @@ backup(){
 }
 
 restore(){
-	myloader --host=$host --user=$user --password=$MYSQL_PWD --directory=${bkp_pth}/${current_table}_backup --queries-per-transaction=500 --threads=16 --compress-protocol --ssl --verbose=3 -e 2>${log_pth}/${current_table}-myloader-logs-restore.log
+	#Fetch list of tables from blob storage
+	tables=$(azcopy ls "${blob}${BLOB_SAS_TOKEN}" | cut -d/ -f 1 | awk '!a[$0]++' | cut -d' ' -f 2 | sed -e 's/_backup/,/g')
+	
+	#Convert list to array
+	tables=$(echo $tables | sed -e 's/\s*//g')
+	readarray -td, table_array <<<"$tables"
+	#Unset last element to remove trailing new line
+	unset 'table_array[-1]'
+
+	#Loop over table, copy locally and load to mysql
+	for i in "${!table_array[@]}"; do
+		current_table=${table_array[i]}
+		emit " Copying talbe ${current_table}"
+		azcopy copy "${blob}/${current_table}_backup${BLOB_SAS_TOKEN}" ${bkp_pth} --recursive
+		
+		#Load table to mysql
+		myloader --host=$host --user=$user --password=$MYSQL_PWD --directory=${bkp_pth}/${current_table}_backup --queries-per-transaction=500 --threads=16 --compress-protocol --ssl --verbose=3 -e 2>${log_pth}/${current_table}-myloader-logs-restore.log
+
+		#Remove local copy
+		emit "Transfer complete, deleting local copy of ${current_table}"
+		rm -r ${bkp_pth}/${current_table}_backup
+	done
 }
 
 
