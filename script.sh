@@ -8,8 +8,8 @@
 # Run script in the background with: nohup bash script &
 # Set enviroment variables: MYSQL_PWD & BLOB_SAS_TOKEN
 
-bkp_pth="/mnt/c/workspace/forter/db_migration"
-log_pth="/mnt/c/workspace/forter/db_migration"
+bkp_pth="/mnt/c/workspace/db_migration"
+log_pth="/mnt/c/workspace/db_migration"
 blob="https://stpocdevwus201.blob.core.windows.net/blob-db-export-adam"
 allowed_commands=["help","backup","restore"]
 
