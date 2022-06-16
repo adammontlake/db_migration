@@ -11,31 +11,31 @@
 #Backup folder to hold db backup folder - needs write p[ermission
 bkp_pth="/mnt/c/workspace/db_migration"
 # log storage path
-log_pth="/mnt/c/workspace/db_migration"
-log_file="${log_path}/scipt_log"
+log_pth="/mnt/c/workspace/db_migration/logs"
+log_file="${log_pth}/scipt_log"
 #blob to hold backups
 blob="https://stpocdevwus201.blob.core.windows.net/blob-db-export-adam"
 #db host 
-host=""
+host="abc"
 #db user 
-user=""
+user="abc"
 #db name 
-db=""
+db="abc"
 command="backup"
-allowed_commands=["help","backup","restore"]
+allowed_commands=["help","backup","restore","test_script"]
 
 #Tables to remove before backing up
 system_tables=["","",""]
 
-backup_tables=[]
+specific_table=()
 
 required_software=("azcopy" "wget" "mysql" "mydumper" "myloader")
 
 check_dependencies(){
-	echo "Checking ${#required_software[@]} required dependencies..."	
+	emit "Checking ${#required_software[@]} required dependencies..."	
 	for var in "${required_software[@]}"
 	do
-		echo "checking $var"
+		emit "checking $var"
 		hash $var 2>/dev/null || { emit >&2 "Required software $var not installed. Aborting."; exit 1; }
 	done
 }
@@ -54,26 +54,35 @@ help(){
 	echo "-t (threads): number of threads to use, defaults to 16"
 }
 
+test_script() {
+	emit "script test"
+}
+
 backup(){
-	#Fetch all existing tables from db
-	existing_tables=$(mysql -h $host -u $user -se "use $db; SHOW TABLES;")
-	
-	#Convert delimeter to ,
-	mod_delim_tables=$(echo $existing_tables | sed -e 's/\s\+/,/g')
 
-	#convert to array
-	readarray -td, table_array <<<"$mod_delim_tables,"
-	#Unset last element to remove trailing new line
-	unset 'table_array[-1]'
+	if (( ${#specific_table[@]} == 1 )); then
+		table_array=("${specific_table[@]}")
+	else
+		#Fetch all existing tables from db
+		existing_tables=$(mysql -h $host -u $user -se "use $db; SHOW TABLES;")
+		
+		#Convert delimeter to ,
+		mod_delim_tables=$(echo $existing_tables | sed -e 's/\s\+/,/g')
 
-	#remove system tables that start with "_" and in system_tables array
-	for i in "${!table_array[@]}"; do
-		#table_array[$i]=${table_array[i]%,*} 
-		if [[ ${table_array[i]} == _* || $system_tables =~ ${table_array[i]} ]]; then
-			emit "Unsetting: ${table_array[i]}"
-			unset 'table_array[i]'
-		fi
-	done
+		#convert to array
+		readarray -td, table_array <<<"$mod_delim_tables,"
+		#Unset last element to remove trailing new line
+		unset 'table_array[-1]'
+
+		#remove system tables that start with "_" and in system_tables array
+		for i in "${!table_array[@]}"; do
+			#table_array[$i]=${table_array[i]%,*} 
+			if [[ ${table_array[i]} == _* || $system_tables =~ ${table_array[i]} ]]; then
+				emit "Unsetting: ${table_array[i]}"
+				unset 'table_array[i]'
+			fi
+		done
+	fi
 
 	#Backup and upload all tables 
 	for i in "${!table_array[@]}"; do
@@ -91,14 +100,18 @@ backup(){
 }
 
 restore(){
-	#Fetch list of tables from blob storage
-	tables=$(azcopy ls "${blob}${BLOB_SAS_TOKEN}" | cut -d/ -f 1 | awk '!a[$0]++' | cut -d' ' -f 2 | sed -e 's/_backup/,/g')
-	
-	#Convert list to array
-	tables=$(echo $tables | sed -e 's/\s*//g')
-	readarray -td, table_array <<<"$tables"
-	#Unset last element to remove trailing new line
-	unset 'table_array[-1]'
+	if (( ${#specific_table[@]} == 1 )); then
+		table_array=("${specific_table[@]}")
+	else
+		#Fetch list of tables from blob storage
+		tables=$(azcopy ls "${blob}${BLOB_SAS_TOKEN}" | cut -d/ -f 1 | awk '!a[$0]++' | cut -d' ' -f 2 | sed -e 's/_backup/,/g')
+		
+		#Convert list to array
+		tables=$(echo $tables | sed -e 's/\s*//g')
+		readarray -td, table_array <<<"$tables"
+		#Unset last element to remove trailing new line
+		unset 'table_array[-1]'
+	fi
 
 	#Loop over table, copy locally and load to mysql
 	for i in "${!table_array[@]}"; do
