@@ -8,9 +8,20 @@
 # Run script in the background with: nohup bash script &
 # Set enviroment variables: MYSQL_PWD & BLOB_SAS_TOKEN
 
+#Backup folder to hold db backup folder - needs write p[ermission
 bkp_pth="/mnt/c/workspace/db_migration"
+# log storage path
 log_pth="/mnt/c/workspace/db_migration"
+log_file="${log_path}/scipt_log"
+#blob to hold backups
 blob="https://stpocdevwus201.blob.core.windows.net/blob-db-export-adam"
+#db host 
+host=""
+#db user 
+user=""
+#db name 
+db=""
+command="backup"
 allowed_commands=["help","backup","restore"]
 
 #Tables to remove before backing up
@@ -25,12 +36,12 @@ check_dependencies(){
 	for var in "${required_software[@]}"
 	do
 		echo "checking $var"
-		hash $var 2>/dev/null || { echo >&2 "Required software $var not installed. Aborting."; exit 1; }
+		hash $var 2>/dev/null || { emit >&2 "Required software $var not installed. Aborting."; exit 1; }
 	done
 }
 
 emit(){
-	echo $1
+	echo $1 >> $log_file
 }
 
 help(){
@@ -128,7 +139,7 @@ else
 		exit 1
 	fi
 	check_dependencies
-	echo $host $user $db $command
+	emit $host $user $db $command
 	if [[ $allowed_commands =~ $command ]]; 
 	then 
 		start=$(date '+%d/%m/%Y %H:%M:%S')
