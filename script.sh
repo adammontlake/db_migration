@@ -16,6 +16,8 @@ allowed_commands=["help","backup","restore"]
 #Tables to remove before backing up
 system_tables=["","",""]
 
+backup_tables=[]
+
 required_software=("azcopy" "wget" "mysql" "mydumper" "myloader")
 
 check_dependencies(){
@@ -65,6 +67,7 @@ backup(){
 	#Backup and upload all tables 
 	for i in "${!table_array[@]}"; do
 		current_table=${table_array[i]}
+		
 		emit "Backing up table ${current_table}"
 		mydumper --host=$host --user=$user --password=$MYSQL_PWD --outputdir=${bkp_pth}/${current_table}_backup --rows=100000000 --compress --build-empty-files --threads=16 --compress-protocol --trx-consistency-only --ssl  --regex "^($db\.$current_table)" -L ${log_pth}/${current_table}-mydumper-logs.log
 
@@ -93,7 +96,7 @@ restore(){
 		azcopy copy "${blob}/${current_table}_backup${BLOB_SAS_TOKEN}" ${bkp_pth} --recursive
 		
 		#Load table to mysql
-		myloader --host=$host --user=$user --password=$MYSQL_PWD --directory=${bkp_pth}/${current_table}_backup --queries-per-transaction=500 --threads=16 --compress-protocol --ssl --verbose=3 --innodb-optimize-keys -e 2>${log_pth}/${current_table}-myloader-logs-restore.log
+		myloader --host=$host --user=$user --password=$MYSQL_PWD --directory=${bkp_pth}/${current_table}_backup --queries-per-transaction=500 --threads=16 --compress-protocol --ssl --verbose=2 --innodb-optimize-keys -e 2>${log_pth}/${current_table}-myloader-logs-restore.log
 
 		#Remove local copy
 		emit "Transfer complete, deleting local copy of ${current_table}"
