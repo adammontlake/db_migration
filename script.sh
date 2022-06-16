@@ -11,7 +11,7 @@
 #Backup folder to hold db backup folder - needs write p[ermission
 bkp_pth="/mnt/c/workspace/db_migration"
 # log storage path
-log_pth="/mnt/c/workspace/db_migration/logs"
+log_pth="$bkp_pth/logs"
 log_file="${log_pth}/scipt_log"
 #blob to hold backups
 blob="https://stpocdevwus201.blob.core.windows.net/blob-db-export-adam"
