@@ -9,25 +9,34 @@
 # Set enviroment variables: MYSQL_PWD & BLOB_SAS_TOKEN
 
 #Backup folder to hold db backup folder - needs write p[ermission
-bkp_pth="/mnt/c/workspace/db_migration"
+bkp_pth="/etc/backup"
 # log storage path
 log_pth="$bkp_pth/logs"
 log_file="${log_pth}/scipt_log"
 #blob to hold backups
-blob="https://stpocdevwus201.blob.core.windows.net/blob-db-export-adam"
+blob=$BLOB_URI
 #db host 
-host="abc"
+host=$DB_HOST
 #db user 
-user="abc"
+user=$DB_USER
 #db name 
-db="abc"
-command="backup"
+db="innodb"
+command=$MBL_COMMAND
+specific_table=()
+
 allowed_commands=["help","backup","restore","test_script"]
+
+emit(){
+	echo $1 >> $log_file
+}
+
+if [[ -n "${SINGLE_TABLE}" ]]; then
+	specific_table[${#specific_table[@]}]=$SINGLE_TABLE
+fi
 
 #Tables to remove before backing up
 system_tables=["","",""]
 
-specific_table=()
 
 required_software=("azcopy" "wget" "mysql" "mydumper" "myloader")
 
@@ -40,9 +49,6 @@ check_dependencies(){
 	done
 }
 
-emit(){
-	echo $1 >> $log_file
-}
 
 help(){
 	echo "Script to copy Forter mySQL to Azure"
@@ -55,7 +61,10 @@ help(){
 }
 
 test_script() {
-	emit "script test"
+	emit "--- script test ---"
+	emit "Single_table: ${SINGLE_TABLE}"
+	emit "specific_table size: ${#specific_table[@]}"
+	emit "specific_table content: "${specific_table[*]}""
 }
 
 backup(){
@@ -129,7 +138,7 @@ restore(){
 }
 
 
-if [ $# == 0 ] 
+if [ $# == 0 ] && [ $command == "" ]
 then
 	help
 else
