@@ -8,7 +8,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 WORKDIR /usr/src/MDL
 
 RUN apt update
-RUN apt-get -y install libglib2.0-dev zlib1g-dev libpcre3-dev libssl-dev libzstd-dev wget libatomic1 lsb-release gnupg2 
+RUN apt-get -y install libglib2.0-dev zlib1g-dev libpcre3-dev libssl-dev libzstd-dev wget libatomic1 lsb-release gnupg2  less
 RUN wget https://github.com/mydumper/mydumper/releases/download/v0.12.3-3/mydumper_0.12.3-3-zstd.focal_amd64.deb
 RUN dpkg -i mydumper_0.12.3-3-zstd.focal_amd64.deb
 
