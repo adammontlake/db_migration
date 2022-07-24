@@ -8,11 +8,14 @@
 # Run script in the background with: nohup bash script &
 # Set enviroment variables: MYSQL_PWD & BLOB_SAS_TOKEN
 
+
+command=$MBL_COMMAND
+
 #Backup folder to hold db backup folder - needs write p[ermission
 bkp_pth="/etc/backup"
 # log storage path
 log_pth="$bkp_pth/logs"
-log_file="${log_pth}/scipt_log"
+log_file="${log_pth}/scipt_${command}_log"
 #blob to hold backups
 blob=$BLOB_URI
 #db host 
@@ -21,10 +24,11 @@ host=$DB_HOST
 user=$DB_USER
 #db name 
 db="innodb"
-command=$MBL_COMMAND
 specific_table=()
+sql_command=$SQL_COMMAND
+xtrabackup_command=$XTRABACKUP_COMMAND
 
-allowed_commands=["help","backup","restore","test_script"]
+allowed_commands=["help","backup","restore","test_script","run_command","s3toblob"]
 
 emit(){
 	echo $1 >> $log_file
@@ -44,7 +48,6 @@ check_dependencies(){
 	emit "Checking ${#required_software[@]} required dependencies..."	
 	for var in "${required_software[@]}"
 	do
-		emit "checking $var"
 		hash $var 2>/dev/null || { emit >&2 "Required software $var not installed. Aborting."; exit 1; }
 	done
 }
@@ -67,8 +70,40 @@ test_script() {
 	emit "specific_table content: "${specific_table[*]}""
 }
 
+s3toblob() {
+	export AZCOPY_LOG_LOCATION=$log_pth
+	if [[ -z "${AWS_ACCESS_KEY_ID}" || -z "${AWS_SECRET_ACCESS_KEY}" || -z "${S3}"  || -z "${BLOB_SAS_TOKEN}" ]]; then
+		emit "Missing one or more parameters to copy: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3 BLOB_SAS_TOKEN... Exiting"
+		exit 1
+	fi	
+	azcopy copy 'https://s3.amazonaws.com/mybucket/myobject' 'https://mystorageaccount.blob.core.windows.net/mycontainer/myblob'
+
+}
+
+run_command() {
+	if [[ -z "${sql_command}" ]]; then
+		emit "FAILED: Running in \"run_command\" mode without specifying sql_command... "
+		exit 1
+	fi
+	#emit "Running command: ${sql_command}"
+	emit "Running command list... "
+	
+	readarray -td '|' commands_array <<<"$sql_command|"
+	#Unset last element to remove trailing new line
+	unset 'commands_array[-1]'
+
+	for i in "${!commands_array[@]}"; do
+		emit "Running command: ${commands_array[i]}"
+		emit "Current time: $(date '+%d/%m/%Y %H:%M:%S')"
+		command_result==$(mysql -h $host -u $user -se "use $db; ${commands_array[i]}")
+		emit "Command result: ${command_result}"
+		emit "Current time: $(date '+%d/%m/%Y %H:%M:%S')"
+	done
+}
+
 backup(){
-	mysql -h $host -u $user -se "CALL mysql.rds_stop_replication;"
+	stop_replication_result=$(mysql -h $host -u $user -se "CALL mysql.rds_stop_replication;")
+	emit $stop_replication_result
 
 	if (( ${#specific_table[@]} == 1 )); then
 		table_array=("${specific_table[@]}")
@@ -87,7 +122,7 @@ backup(){
 		#remove system tables that start with "_" and in system_tables array
 		for i in "${!table_array[@]}"; do
 			#table_array[$i]=${table_array[i]%,*} 
-			if [[ ${table_array[i]} == _* || $system_tables =~ ${table_array[i]} ]]; then
+			if [[ ${table_array[i]} == "test_table" || $system_tables =~ ${table_array[i]} ]]; then
 				emit "Unsetting: ${table_array[i]}"
 				unset 'table_array[i]'
 			fi
@@ -127,11 +162,12 @@ restore(){
 	for i in "${!table_array[@]}"; do
 		current_table=${table_array[i]}
 		emit " Copying talbe ${current_table}"
-		#azcopy copy "${blob}/${current_table}_backup${BLOB_SAS_TOKEN}" ${bkp_pth} --recursive
+		emit "copy parameters: ${blob}/${current_table}_backup${BLOB_SAS_TOKEN} ${bkp_pth} --recursive"
+		azcopy copy "${blob}/${current_table}_backup${BLOB_SAS_TOKEN}" ${bkp_pth} --recursive
 		
 		#Load table to mysql
 		emit " Starting import of talbe ${current_table}"
-		myloader --host=$host --user=$user --password=$MYSQL_PWD --directory=${bkp_pth}/${current_table}_backup --queries-per-transaction=100000 --threads=8 --compress-protocol --ssl --verbose=2 --innodb-optimize-keys -e 2>${log_pth}/${current_table}-myloader-logs-restore.log
+		myloader --host=$host --user=$user --password=$MYSQL_PWD --directory=${bkp_pth}/${current_table}_backup --queries-per-transaction=100000 --threads=16 --compress-protocol --ssl --verbose=2 --innodb-optimize-keys -e 2>${log_pth}/${current_table}-myloader-logs-restore.log
 
 		#Remove local copy
 		emit "Transfer complete, deleting local copy of ${current_table}"
@@ -159,18 +195,18 @@ else
 		exit 1
 	fi
 	if [[ -z "${MYSQL_PWD}" || -z "${BLOB_SAS_TOKEN}" ]]; then
-		emit "Missing password to db OR blob SAS token in env variables: MYSQL_PWD/BLOB_SAS_TOKEN. Exiting..."
+		emit "Missing password to db OR blob SAS token in env variables: MYSQL_PWD/BLOB_SAS_TOKEN: ${MYSQL_PWD}, ${BLOB_SAS_TOKEN}. Exiting..."
 		exit 1
 	fi
 	check_dependencies
-	emit $host $user $db $command
+	emit "Parameters: ${host} ${user} ${db} ${command}"
 	if [[ $allowed_commands =~ $command ]]; 
 	then 
 		start=$(date '+%d/%m/%Y %H:%M:%S')
-		emit "Start time: ${start}"
+		emit "Start script time for command: ${command} - ${start}"
 		$command
 		end=$(date '+%d/%m/%Y %H:%M:%S')
-		emit "End time ${end}"
+		emit "End script timefor command: ${command} - ${end}"
 	else
 		emit "Invalid argument: $command"
 		emit "run with \"help\" for possible arguments"
