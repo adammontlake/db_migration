@@ -31,7 +31,7 @@ xtrabackup_command=$XTRABACKUP_COMMAND
 allowed_commands=["help","backup","restore","test_script","run_command","s3toblob"]
 
 emit(){
-	echo $1 >> $log_file
+	echo "<$(date '+%d/%m/%Y %H:%M:%S')>: ${1}" >> $log_file
 }
 
 if [[ -n "${SINGLE_TABLE}" ]]; then
@@ -94,10 +94,8 @@ run_command() {
 
 	for i in "${!commands_array[@]}"; do
 		emit "Running command: ${commands_array[i]}"
-		emit "Current time: $(date '+%d/%m/%Y %H:%M:%S')"
 		command_result==$(mysql -h $host -u $user -se "use $db; ${commands_array[i]}")
 		emit "Command result: ${command_result}"
-		emit "Current time: $(date '+%d/%m/%Y %H:%M:%S')"
 	done
 }
 
@@ -139,7 +137,7 @@ backup(){
 		emit "Copying backup of ${current_table} to blob storage..."
 		azcopy copy ${bkp_pth}/${current_table}_backup ${blob}${BLOB_SAS_TOKEN} --recursive
 
-		emit "Transfer complete, deleting local copy of ${current_table}"
+		emit "Transfer complete, deleting local copy of ${current_table}."
 		rm -r ${bkp_pth}/${current_table}_backup
 	done
 }
@@ -162,7 +160,7 @@ restore(){
 	for i in "${!table_array[@]}"; do
 		current_table=${table_array[i]}
 		emit " Copying talbe ${current_table}"
-		emit "copy parameters: ${blob}/${current_table}_backup${BLOB_SAS_TOKEN} ${bkp_pth} --recursive"
+		emit "copy parameters: ${blob}/${current_table}_backup ${bkp_pth} --recursive"
 		azcopy copy "${blob}/${current_table}_backup${BLOB_SAS_TOKEN}" ${bkp_pth} --recursive
 		
 		#Load table to mysql
@@ -199,14 +197,14 @@ else
 		exit 1
 	fi
 	check_dependencies
+	emit ""
+	emit "--- Script initiated with parameters ---"
 	emit "Parameters: ${host} ${user} ${db} ${command}"
 	if [[ $allowed_commands =~ $command ]]; 
 	then 
-		start=$(date '+%d/%m/%Y %H:%M:%S')
-		emit "Start script time for command: ${command} - ${start}"
+		emit "Starting script with command: ${command}"
 		$command
-		end=$(date '+%d/%m/%Y %H:%M:%S')
-		emit "End script timefor command: ${command} - ${end}"
+		emit "End script with command: ${command}"
 	else
 		emit "Invalid argument: $command"
 		emit "run with \"help\" for possible arguments"
