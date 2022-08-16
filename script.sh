@@ -159,12 +159,12 @@ restore(){
 	#Loop over table, copy locally and load to mysql
 	for i in "${!table_array[@]}"; do
 		current_table=${table_array[i]}
-		emit " Copying talbe ${current_table}"
+		emit "Copying talbe ${current_table}"
 		emit "copy parameters: ${blob}/${current_table}_backup ${bkp_pth} --recursive"
 		azcopy copy "${blob}/${current_table}_backup${BLOB_SAS_TOKEN}" ${bkp_pth} --recursive
 		
 		#Load table to mysql
-		emit " Starting import of table ${current_table}"
+		emit "Starting import of table ${current_table}"
 		myloader --host=$host --user=$user --password=$MYSQL_PWD --directory=${bkp_pth}/${current_table}_backup --queries-per-transaction=100000 --threads=16 --compress-protocol --ssl --verbose=2 --innodb-optimize-keys -e 2>${log_pth}/${current_table}-myloader-logs-restore.log
 
 		#Remove local copy
