@@ -15,7 +15,7 @@ command=$MBL_COMMAND
 bkp_pth="/etc/backup"
 # log storage path
 log_pth="$bkp_pth/logs"
-log_file="${log_pth}/scipt_${command}_log"
+log_file="${log_pth}/script_${command}_log"
 #blob to hold backups
 blob=$BLOB_URI
 #db host 
