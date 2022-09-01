@@ -1,14 +1,5 @@
 #!/bin/bash
 
-# Script to backup/restore mysql using mydumper/myloader and storing the backups in Azure blob storage
-# Before running make sure zstd dependecies are installd and mydumper v12.3 or newer is installed
-# ->  apt-get install libglib2.0-dev zlib1g-dev libpcre3-dev libssl-dev libzstd-dev
-# ->  wget https://github.com/mydumper/mydumper/releases/download/v0.12.3-3/mydumper_0.12.3-3-zstd.$(lsb_release -cs)_amd64.deb
-# ->  sudo dpkg -i mydumper...
-# Run script in the background with: nohup bash script &
-# Set enviroment variables: MYSQL_PWD & BLOB_SAS_TOKEN
-
-
 command=$MBL_COMMAND
 
 #Backup folder to hold db backup folder - needs write p[ermission
@@ -23,10 +14,9 @@ host=$DB_HOST
 #db user 
 user=$DB_USER
 #db name 
-db="innodb"
+db="${$DATABSE:=innodb}" 
 specific_table=()
 sql_command=$SQL_COMMAND
-xtrabackup_command=$XTRABACKUP_COMMAND
 
 allowed_commands=["help","backup","restore","test_script","run_command","s3toblob"]
 
@@ -38,9 +28,8 @@ if [[ -n "${SINGLE_TABLE}" ]]; then
 	specific_table[${#specific_table[@]}]=$SINGLE_TABLE
 fi
 
-#Tables to remove before backing up
+#Tables to ignore while backing up
 system_tables=["","",""]
-
 
 required_software=("azcopy" "wget" "mysql" "mydumper" "myloader")
 
@@ -54,7 +43,7 @@ check_dependencies(){
 
 
 help(){
-	echo "Script to copy Forter mySQL to Azure"
+	echo "Script to copy AWS RDS to Azure MySQL flexible server"
 	echo "Use the following options to configure:"
 	echo "-c (command): MANDATORY, can be backup or restore"
 	echo "-h (host): MANDATORY, the hostname of the mysql server"
@@ -68,16 +57,6 @@ test_script() {
 	emit "Single_table: ${SINGLE_TABLE}"
 	emit "specific_table size: ${#specific_table[@]}"
 	emit "specific_table content: "${specific_table[*]}""
-}
-
-s3toblob() {
-	export AZCOPY_LOG_LOCATION=$log_pth
-	if [[ -z "${AWS_ACCESS_KEY_ID}" || -z "${AWS_SECRET_ACCESS_KEY}" || -z "${S3}"  || -z "${BLOB_SAS_TOKEN}" ]]; then
-		emit "Missing one or more parameters to copy: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3 BLOB_SAS_TOKEN... Exiting"
-		exit 1
-	fi	
-	azcopy copy 'https://s3.amazonaws.com/mybucket/myobject' 'https://mystorageaccount.blob.core.windows.net/mycontainer/myblob'
-
 }
 
 run_command() {
@@ -197,6 +176,12 @@ else
 		exit 1
 	fi
 	check_dependencies
+	
+	#Create logs folder if does not exist
+	if [ ! -d $log_pth ]; then
+		  mkdir -p $log_pth;
+	fi
+	
 	emit ""
 	emit "--- Script initiated with parameters ---"
 	emit "Parameters: ${host} ${user} ${db} ${command}"
@@ -209,15 +194,4 @@ else
 		emit "Invalid argument: $command"
 		emit "run with \"help\" for possible arguments"
 	fi
-	#for var in "$@"
-	#do
-	#	if [[ $allowed_commands =~ $var ]]; 
-	#	then 
-	#		$var 
-	#	else
-	#		echo "Invalid argument: $var"
-	#		echo "run with \"help\" for possible arguments"
-	#	fi
-	#done
 fi
-
