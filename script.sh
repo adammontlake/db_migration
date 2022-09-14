@@ -18,7 +18,7 @@ db="${$DATABSE:=innodb}"
 specific_table=()
 sql_command=$SQL_COMMAND
 
-allowed_commands=["help","backup","restore","test_script","run_command","s3toblob"]
+allowed_commands=["help","backup","restore","test_script","run_command","s3toblob","restore_command"]
 
 emit(){
 	echo "<$(date '+%d/%m/%Y %H:%M:%S')>: ${1}" >> $log_file
@@ -64,6 +64,7 @@ run_command() {
 		emit "FAILED: Running in \"run_command\" mode without specifying sql_command... "
 		exit 1
 	fi
+
 	#emit "Running command: ${sql_command}"
 	emit "Running command list... "
 	
@@ -73,7 +74,12 @@ run_command() {
 
 	for i in "${!commands_array[@]}"; do
 		emit "Running command: ${commands_array[i]}"
-		command_result==$(mysql -h $host -u $user -se "use $db; ${commands_array[i]}")
+		arrIN=(${commands_array[i]//;/ })
+		if [[ ${arrIN[0]} == "mysql_cli" ]]; then
+			command_result==$(mysql -h $host -u $user -se "use $db; ${commands_array[i]};");
+		else		
+			command_result==$(pt-online-schema-change --alter "${arrIN[0]}" D=$db,t=${arrIN[1]} --host $host --user $user --password $MYSQL_PWD --execute);
+		fi
 		emit "Command result: ${command_result}"
 	done
 }
@@ -152,6 +158,10 @@ restore(){
 	done
 }
 
+restore_command(){
+	restore
+	run_command
+}
 
 if [ $# == 0 ] && [ $command == "" ]
 then

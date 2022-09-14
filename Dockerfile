@@ -26,6 +26,9 @@ RUN dpkg -i mysql-apt-config_0.8.22-1_all.deb
 RUN apt update
 RUN apt install -y mysql-community-client mysql-common
 
+#Install Percona toolkit
+RUN apt-get -y install percona-toolkit
+
 #Remove tangling resources
 RUN rm -r azcopy_linux_amd*
 RUN rm downloadazcopy*
