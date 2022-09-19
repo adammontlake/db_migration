@@ -14,7 +14,7 @@ host=$DB_HOST
 #db user 
 user=$DB_USER
 #db name 
-db="${$DATABSE:=innodb}" 
+db="${DATABSE:=innodb}" 
 specific_table=()
 sql_command=$SQL_COMMAND
 
@@ -74,11 +74,12 @@ run_command() {
 
 	for i in "${!commands_array[@]}"; do
 		emit "Running command: ${commands_array[i]}"
-		arrIN=(${commands_array[i]//;/ })
+                readarray -td ';' arrIN <<<"${commands_array[i]};"
+                unset 'arrIN[-1]'
 		if [[ ${arrIN[0]} == "mysql_cli" ]]; then
-			command_result==$(mysql -h $host -u $user -se "use $db; ${commands_array[i]};");
+			command_result==$(mysql -h $host -u $user -se "use $db; ${arrIN[1]};");
 		else		
-			command_result==$(pt-online-schema-change --alter "${arrIN[0]}" D=$db,t=${arrIN[1]} --host $host --user $user --password $MYSQL_PWD --execute);
+			command_result==$(pt-online-schema-change --alter "${arrIN[1]}" D=$db,t=${arrIN[0]} --host $host --user $user --password $MYSQL_PWD --execute);
 		fi
 		emit "Command result: ${command_result}"
 	done
